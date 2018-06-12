@@ -10,6 +10,7 @@ package com.foreveross.common.web;
 
 import com.foreveross.common.proxy.ProxyServlet;
 import org.apache.commons.lang3.StringUtils;
+import org.iff.infra.util.Logger;
 import org.iff.infra.util.MapHelper;
 import org.iff.infra.util.SocketHelper;
 import org.springframework.stereotype.Controller;
@@ -57,7 +58,9 @@ public class ProxyController {
             }
         };
         try {
-            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, "http://" + pathSplit[0] + "/" + pathSplit[1] + "/*"));
+            String targetUrl = "http://" + pathSplit[0] + ":" + pathSplit[1] + "/*";
+            Logger.info("Proxy target url: " + targetUrl);
+            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl));
             proxyServlet.service(wrapper, response);
         } catch (Exception e) {
             e.printStackTrace();
