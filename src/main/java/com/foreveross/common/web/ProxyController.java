@@ -60,7 +60,7 @@ public class ProxyController {
             }
         };
         try {
-            String targetUrl = "http://" + pathSplit[0] + ":" + pathSplit[1] + "/*";
+            String targetUrl = "http://" + pathSplit[0] + ":" + pathSplit[1];
             Logger.info("Proxy target url: " + targetUrl + ", origin url: " + requestURI);
             ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl),
                     MapHelper.toMap("zuul", getZuulHeader("admin@admin.com"), "x-forwarded-for", HttpHelper.getRemoteIpAddr(request), "proxy-enable", "1"));
