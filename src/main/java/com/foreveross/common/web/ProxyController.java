@@ -11,6 +11,7 @@ package com.foreveross.common.web;
 import com.foreveross.common.proxy.ProxyServlet;
 import org.apache.commons.lang3.StringUtils;
 import org.iff.infra.util.MapHelper;
+import org.iff.infra.util.SocketHelper;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -29,25 +30,34 @@ import javax.servlet.http.HttpServletResponse;
 @RequestMapping("/proxy")
 public class ProxyController {
 
-    @RequestMapping(path = "/{appName}/**")//path=/proxy/app/realUri
+    @RequestMapping(path = "/{host}/{port}/**")//path=/host/port/realUri
     public void proxy(HttpServletRequest request, HttpServletResponse response) {
         String requestURI = request.getRequestURI();
-        System.out.println("URI:"+requestURI);
+        System.out.println("URI:" + requestURI);
         String reportPath = StringUtils.substringAfter(requestURI, "/proxy/");
         String[] pathSplit = StringUtils.split(reportPath, "/");
-        final String appPath = "/proxy/" + pathSplit[0];
+        if (pathSplit.length < 2) {
+            try {
+                response.setContentType("text/html;charset=UTF-8");
+                String html = "UNKOWN URL:" + reportPath;
+                response.getWriter().print(html);
+                SocketHelper.closeWithoutError(response.getWriter());
+            } catch (Exception e) {
+            }
+        }
+        final String hostPort = "/proxy/" + pathSplit[0] + "/" + pathSplit[1];
         final HttpServletRequest wrapper = new HttpServletRequestWrapper(request) {
             public String getPathInfo() {
                 String path = super.getPathInfo();
-                if (path.startsWith(appPath)) {
-                    final int length = appPath.length();
+                if (path.startsWith(hostPort)) {
+                    final int length = hostPort.length();
                     path = path.substring(length);
                 }
                 return path;
             }
         };
         try {
-            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, "http://120.26.82.66:9300" + pathSplit[0]));
+            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, "http://" + pathSplit[0] + "/" + pathSplit[1] + "/*"));
             proxyServlet.service(wrapper, response);
         } catch (Exception e) {
             e.printStackTrace();
