@@ -1,0 +1,179 @@
+<template>
+	<div class="qdp-list-layout">
+		<!-- 搜索 -->
+		<!-- 搜索-END -->
+		<!-- 操作栏 -->
+		<!-- 操作栏-END- -->
+		<!-- 列表 -->
+		<el-row class="qdp-list-content qdp-grid" type="flex" justify="start" align="top">
+            <el-col :span="24">
+                <div v-for="(serviceInfos, service) in grid.data" class="row-bg">
+                    <el-row type="flex" justify="start" align="top" :gutter="20">
+                        <el-col :span="4">
+                            <el-button type="primary" plain>{{service.substring(service.indexOf('[')+1, service.indexOf(']'))}}</el-button>
+                        </el-col>
+                        <el-col :span="14">
+                            <el-button type="primary" plain>{{service.substring(service.indexOf(']')+1)}}</el-button>
+                        </el-col>
+                        <el-col :span="6">
+                            <div class="qdp-input-model">
+                                <el-button icon="el-icon-search" @click="openDialog('editForm','roleId')" size="small" type="text"></el-button>
+                                <div class="el-input el-input--small"><!--列表显示所有的选择-->
+                                    <div class="qdp-modal-list-body" style="border:1px solid #d1dbe5;">
+                                        <div class="qdp-modal-list" style="max-height: 100px; overflow: auto;">
+                                            <table cellspacing="0" cellpadding="0" border="0" class="el-table__body" style="width: 100%;">
+                                                <tr class="el-transfer-panel__item el-table__row" v-for="value in split(editForm, 'roleIdName')" v-if="value" :key="value">
+                                                    <td><el-button size="small" type="text" title="删除"   @click="removeSelect(editForm, 'roleId', value)"><i class="el-icon-ion-trash-b"></i></el-button></td>
+                                                    <td style="padding-left: 10px;"><span>{{value}}</span></td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-col>
+                    </el-row>
+                </div>
+            </el-col>
+		</el-row>
+		<!-- 列表-END -->
+		<!-- 分页 -->
+		<!-- 分页-END -->
+		<!-- 添加 -->
+		<!-- 添加-END -->
+		<!-- 修改 -->
+		<!-- 修改-END -->
+		<!-- 详情 -->
+		<!-- 详情-END -->
+        <!-- 弹出选择：分配角色 -->
+        <el-dialog class="qdp-form-dialog" title="分配角色" :visible.sync="roleIdVisible" v-if="roleIdVisible">
+            <el-row type="flex" justify="center" align="top">
+                <el-col :span="24">
+                    <Roleid v-if="currentFormName" :value.sync="this[currentFormName]" :multi="true" :field="'roleId'" :id-field="'id'" :enums="enums"></Roleid>
+                </el-col>
+            </el-row>
+            <el-row type="flex" justify="center" align="top" class="qdp-dialog-btns">
+                <el-button type="primary" @click="resetSelectionLabel(currentFormName, 'roleId'),roleIdVisible=false" icon="ion-backspace-outline">重置</el-button>
+                <el-button type="primary" @click="getSelectionLabel(currentFormName, 'roleId', 'name'),roleIdVisible=false" icon="ion-checkmark">选择</el-button>
+            </el-row>
+        </el-dialog>
+        <!-- 弹出选择：分配角色-END -->
+	</div>
+</template>
+<script type="text/javascript">
+	define([ 'vue', 'vuel!pages/default/admin/services/roleId.html'], function(Vue, Roleid) {
+		return {
+			template : template, //
+			components : {
+				Roleid: Roleid
+			},
+			data : function() {
+				return {
+					//===
+					hotKey : {
+					},
+					searchForm : {
+						id : '', name : '', dataSource : '', queryContent : '', type1 : '', type2 : '', description : '', updateTime : '', createTime : ''
+					},
+					enums : {},
+					grid: {
+					    data: {}
+					},
+					serviceInfosUrl : '/rest/Admin/restInfos',
+					roleIdVisible : false,
+					editFormUrl : '/ws/json/authAccountApplication/updateAuthAccount',
+					editFormVisible : false,
+					editForm : {
+						loginEmail : null, status : null, type : null, userId : null, userIdName : '', userIdSelections : [], description : null, roleId : null, roleIdName : '', roleIdSelections : []
+					},
+					editFormRules : {}
+				};
+			}, //
+			created : function() {
+			    this.loadServiceInfos();
+			}, //
+			mounted : function() {
+				//快捷键
+			},//
+			beforeDestroy : function() {
+				//快捷键
+			},//
+			methods : {
+				cache : getters.cache,//
+				accountId : getters.accountId, //
+				loadServiceInfos: function(){
+                    var root = this, grid = root.grid, url = qdpFormatUrl(ctx + root.serviceInfosUrl, {});
+					LOG("FN: Grid.grid-load-data.url=" + url);
+					root.$http.get(url).then(function(data) {
+				        Vue.set(grid, 'data', qdpAjaxDataBody(data));
+					}, function(response) {
+						root.$notify({
+							title : 'Http=>Error', desc : response.url + '\n<br/>' + qdpToString(response), duration : 0
+						});
+					});
+				},
+				// 返回选择项的值
+				getOption : function(data, field) {
+					var fieldName = field.property || field, enums = ((this.enums || {}).index||{})[fieldName] || {};
+					var value = data[fieldName];
+					var option = enums[value == null ? '' : value];
+					return option == null ? (value == null ? '' : value) : option;
+				},
+				// 返回选择数据的值
+				getSelectionLabel : function(formName, field, labelField) {
+					var form = this[formName], names = [], ids = [], datas = form[field + 'Selections'];
+					qdpMap(datas, function(value) {
+						names.push(value[labelField]);
+						ids.push(value.id);
+					});
+					form[field + 'Name'] = names.join(',');
+					form[field] = ids.join(',');
+					return;
+				},
+				// 重置选择数据的值
+				resetSelectionLabel : function(formName, field) {
+					var ref = this.$refs[formName + '-' + field], ref2 = this.$refs[formName + '-' + field + 'Name'];
+					ref && ref.resetField();
+					ref2 && ref2.resetField();
+					this[formName][field + 'Selections'] = [];
+				},
+				// 分割字符串，预防空值
+				split : function(value, fieldName) {
+					return ((value||{})[fieldName]||',').split(',');
+				},
+				// 删除选择项
+				removeSelect : function(form, field, value) {
+					var root = this, names = root.split(form, field+'Name'), ids = root.split(form, field);
+					var index = names.indexOf(value);
+					if(index > -1 && names.length == ids.length){
+						names.splice(index,1), ids.splice(index,1);
+						form[field+'Name']=names.join(','), form[field]=ids.join(',');
+					}
+				},
+				// 重置选择数据的值
+				resetSelectionLabel : function(formName, field) {
+					var ref = this.$refs[formName + '-' + field], ref2 = this.$refs[formName + '-' + field + 'Name'];
+					ref && ref.resetField();
+					ref2 && ref2.resetField();
+					this[formName][field + 'Selections'] = [];
+				},
+				// 打开弹窗
+				openDialog : function(formName, field) {
+					var root = this;
+					root.currentFormName = formName, root[field + 'Visible'] = true;
+				},
+				//
+				onPost : function(eventType, arg0, arg1, arg2, arg3) {
+				}
+			}
+		};
+	});
+</script>
+<style>
+.row-bg{
+    margin: 5px 0;
+}
+.col-bg{
+    background: #d3dce6;
+}
+</style>

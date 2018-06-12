@@ -1,0 +1,141 @@
+<template>
+	<div class="qdp-list-layout">
+		<!-- 搜索 -->
+		<!-- 搜索-END -->
+		<!-- 操作栏 -->
+		<!-- 操作栏-END- -->
+		<!-- 列表 -->
+		<el-row class="qdp-list-content qdp-grid" type="flex" justify="start" align="top">
+            <el-col :span="24">
+                <div v-for="(serverInfos, serverId) in grid.data">
+                    <el-row type="flex" justify="start" align="top">
+                        <el-col :span="24">
+                            <h3>{{serverId}}</h3>
+                        </el-col>
+                    </el-row>
+                    <el-row type="flex" justify="start" align="top" :gutter="20" v-for="(si, sindex) in serverInfos" v-show="sindex%4==0">
+                        <el-col :span="6" v-for="(serverInfo, index) in serverInfos" v-show="index>=sindex && index<sindex+4">
+                            <el-container class="info-ctn">
+                                <el-aside width="60px" :class="serverInfo.indexOf('UP')>-1?'info-left bg-green':'info-left bg-red'">
+                                    <a target="_blank" :href="serverInfo.substring(serverInfo.indexOf(',')+1)">{{serverInfo.indexOf('UP')>-1?'UP':'DOWN'}}</a>
+                                </el-aside>
+                                <el-main>
+                                    <span class="info-box-text">{{serverInfo.substring(serverInfo.indexOf(',')+1)}}</span>
+                                </el-main>
+                            </el-container>
+                        </el-col>
+                    </el-row>
+                    <hr />
+                </div>
+            </el-col>
+		</el-row>
+		<!-- 列表-END -->
+		<!-- 分页 -->
+		<!-- 分页-END -->
+		<!-- 添加 -->
+		<!-- 添加-END -->
+		<!-- 修改 -->
+		<!-- 修改-END -->
+		<!-- 详情 -->
+		<!-- 详情-END -->
+	</div>
+</template>
+<script type="text/javascript">
+	define([ 'vue'], function(Vue) {
+		return {
+			template : template, //
+			components : {
+				
+			},
+			data : function() {
+				return {
+					//===
+					hotKey : {
+					},
+					searchForm : {
+						id : '', name : '', dataSource : '', queryContent : '', type1 : '', type2 : '', description : '', updateTime : '', createTime : ''
+					},
+					enums : {},
+					grid: {
+					    data: {}
+					},
+					serverInfosUrl : '/rest/Admin/serverInfos'
+				};
+			}, //
+			created : function() {
+			    this.loadServerInfos();
+			}, //
+			mounted : function() {
+				//快捷键
+			},//
+			beforeDestroy : function() {
+				//快捷键
+			},//
+			methods : {
+				cache : getters.cache,//
+				accountId : getters.accountId, //
+				loadServerInfos: function(){
+                    var root = this, grid = root.grid, url = qdpFormatUrl(ctx + root.serverInfosUrl, {});
+					LOG("FN: Grid.grid-load-data.url=" + url);
+					root.$http.get(url).then(function(data) {
+				        Vue.set(grid, 'data', qdpAjaxDataBody(data));
+					}, function(response) {
+						root.$notify({
+							title : 'Http=>Error', desc : response.url + '\n<br/>' + qdpToString(response), duration : 0
+						});
+					});
+				},
+				//
+				onPost : function(eventType, arg0, arg1, arg2, arg3) {
+				}
+			}
+		};
+	});
+</script>
+<style>
+.info-ctn{
+    border: 1px solid #ebebeb;
+    height: 80px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    border-radius: 2px;
+}
+.info-ctn a{
+    text-decoration: none;
+    color: #FFF;
+}
+.info-ctn .el-main{
+    padding: 10px;
+}
+.info-left{
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    color: #FFF;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 32px 0;
+}
+.bg-green {
+    background-color: #00a65a !important;
+}
+.bg-red {
+    background-color: #F56C6C !important;
+}
+.info-box-content {
+    padding: 5px 10px;
+    margin-left: 90px;
+}
+.info-box-text {
+    display: block;
+    font-weight: bold;
+    font-size: 14px;
+}
+.info-box-number {
+    display: block;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+</style>
+
