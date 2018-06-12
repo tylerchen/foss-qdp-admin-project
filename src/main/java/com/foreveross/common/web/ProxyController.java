@@ -9,7 +9,9 @@
 package com.foreveross.common.web;
 
 import com.foreveross.common.proxy.ProxyServlet;
+import com.foreveross.common.shiro.JWTTokenHelper;
 import org.apache.commons.lang3.StringUtils;
+import org.iff.infra.util.HttpHelper;
 import org.iff.infra.util.Logger;
 import org.iff.infra.util.MapHelper;
 import org.iff.infra.util.SocketHelper;
@@ -59,11 +61,16 @@ public class ProxyController {
         };
         try {
             String targetUrl = "http://" + pathSplit[0] + ":" + pathSplit[1] + "/*";
-            Logger.info("Proxy target url: " + targetUrl);
-            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl));
+            Logger.info("Proxy target url: " + targetUrl + ", origin url: " + requestURI);
+            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl),
+                    MapHelper.toMap("zuul", getZuulHeader("admin@admin.com"), "x-forwarded-for", HttpHelper.getRemoteIpAddr(request), "proxy-enable", "1"));
             proxyServlet.service(wrapper, response);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private String getZuulHeader(String user) {
+        return JWTTokenHelper.encodeToken(user);
     }
 }

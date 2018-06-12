@@ -168,12 +168,26 @@ public class ProxyServlet implements Closeable {
      * 改造
      */
     protected Map<String, String> config;
+    protected Map<String, String> customHeader;
 
     /**
      * 改造
      */
     public ProxyServlet(Map<String, String> config) {
         this.config = PreCheckHelper.checkNotEmpty(config);
+        try {
+            init();
+        } catch (ServletException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 改造
+     */
+    public ProxyServlet(Map<String, String> config, Map<String, String> customHeader) {
+        this.config = PreCheckHelper.checkNotEmpty(config);
+        this.customHeader = customHeader;
         try {
             init();
         } catch (ServletException e) {
@@ -504,6 +518,15 @@ public class ProxyServlet implements Closeable {
         while (enumerationOfHeaderNames.hasMoreElements()) {
             String headerName = enumerationOfHeaderNames.nextElement();
             copyRequestHeader(servletRequest, proxyRequest, headerName);
+        }
+
+        /**
+         * 改造
+         */
+        if (customHeader != null) {
+            for (Map.Entry<String, String> entry : customHeader.entrySet()) {
+                proxyRequest.addHeader(entry.getKey(), entry.getValue());
+            }
         }
     }
 
