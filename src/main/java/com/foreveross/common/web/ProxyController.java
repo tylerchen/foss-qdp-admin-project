@@ -47,7 +47,7 @@ public class ProxyController {
             }
         };
         try {
-            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, "http://localhost:9200/" + pathSplit[0]));
+            ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, "http://120.26.82.66:9300" + pathSplit[0]));
             proxyServlet.service(wrapper, response);
         } catch (Exception e) {
             e.printStackTrace();
