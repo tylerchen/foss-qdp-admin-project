@@ -752,8 +752,10 @@ public class ProxyServlet implements Closeable {
             } else {
                 if (link.startsWith("/")) {
                     rewritten = matcher.group(1) + matcher.group(2) + servletRequest.getContextPath() + link + matcher.group(2);
-                } else if (!link.startsWith("./")) {
+                } else if (!link.startsWith(".")) {
                     rewritten = matcher.group(1) + matcher.group(2) + "./" + link + matcher.group(2);
+                } else {
+                    rewritten = matcher.group(6);
                 }
             }
             if (rewritten != null) {
