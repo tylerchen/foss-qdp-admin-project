@@ -30,8 +30,10 @@ import org.apache.http.message.BasicHttpRequest;
 import org.apache.http.message.HeaderGroup;
 import org.apache.http.util.EntityUtils;
 import org.iff.infra.util.PreCheckHelper;
+import org.iff.infra.util.StreamHelper;
 
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -44,6 +46,8 @@ import java.util.BitSet;
 import java.util.Enumeration;
 import java.util.Formatter;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * An HTTP reverse proxy/gateway servlet. It is designed to be extended for customization
@@ -115,7 +119,17 @@ public class ProxyServlet implements Closeable {
 
     /* MISC */
     protected static final BitSet asciiQueryChars;
+    /**
+     * 改造
+     */
     private static final org.iff.infra.util.Logger.Log Logger = org.iff.infra.util.Logger.get("FOSS.SHIRO");
+    /**
+     * 改造
+     */
+    private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\']", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
+    /**
+     * 改造
+     */
     private static HttpClient proxyClient;
 
     static {
@@ -678,8 +692,79 @@ public class ProxyServlet implements Closeable {
         HttpEntity entity = proxyResponse.getEntity();
         if (entity != null) {
             OutputStream servletOutputStream = servletResponse.getOutputStream();
-            entity.writeTo(servletOutputStream);
+            String contentType = servletResponse.getContentType();
+            if (contentType == null || contentType.indexOf("html") > -1 || contentType.indexOf("css") > -1) {
+                rewriteUrl(servletResponse, servletRequest, entity, (ServletOutputStream) servletOutputStream);
+
+            } else {
+                entity.writeTo(servletOutputStream);
+            }
         }
+    }
+
+    /**
+     * 改造
+     *
+     * @param servletResponse
+     * @param servletRequest
+     * @param entity
+     * @param servletOutputStream
+     * @throws IOException
+     */
+    private void rewriteUrl(HttpServletResponse servletResponse, HttpServletRequest servletRequest, HttpEntity entity, ServletOutputStream servletOutputStream) throws IOException {
+        /*
+         * Using regex can be quite harsh sometimes so here is how
+         * the regex trying to find links works
+         *
+         * \\b(href=|src=|action=|url\\()([\"\'])
+         * This part is the identification of links, matching
+         * something like href=", href=' and href=
+         *
+         * (([^/]+://)([^/<>]+))?
+         * This is to identify absolute paths. A link doesn't have
+         * to be absolute therefor there is a ?.
+         *
+         * ([^\"\'>]*)
+         * This is the link
+         *
+         * [\"\']
+         * Ending " or '
+         *
+         * $1 - link type, e.g. href=
+         * $2 - ", ' or whitespace
+         * $3 - The entire http://www.server.com if present
+         * $4 - The protocol, e.g http:// or ftp://
+         * $5 - The host name, e.g. www.server.com
+         * $6 - The link
+         */
+        String content = StreamHelper.getContent(entity.getContent(), false);
+        StringBuffer page = new StringBuffer();
+
+        Matcher matcher = linkPattern.matcher(content);
+        while (matcher.find()) {
+            String link = matcher.group(6).replaceAll("\\$", "\\\\\\$");
+            if (link.length() == 0) {
+                link = "/";
+            }
+            String rewritten = null;
+            if (matcher.group(4) != null) {
+                rewritten = matcher.group(6);
+            } else {
+                if (link.startsWith("/")) {
+                    rewritten = matcher.group(1) + matcher.group(2) + servletRequest.getContextPath() + link + matcher.group(2);
+                } else if (!link.startsWith("./")) {
+                    rewritten = matcher.group(1) + matcher.group(2) + "./" + link + matcher.group(2);
+                }
+            }
+            if (rewritten != null) {
+                matcher.appendReplacement(page, rewritten);
+            }
+        }
+        matcher.appendTail(page);
+        String pageContent = page.toString();
+        byte[] pageBytes = pageContent.getBytes("UTF-8");
+        servletResponse.setIntHeader(HttpHeaders.CONTENT_LENGTH, pageBytes.length);
+        servletOutputStream.write(pageBytes);
     }
 
     /**
