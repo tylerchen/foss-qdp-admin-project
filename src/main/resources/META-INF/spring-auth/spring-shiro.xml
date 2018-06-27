@@ -26,7 +26,7 @@
                     <bean class="com.foreveross.common.shiro.ShiroIpAccessControlFilter"/>
                 </entry>
                 <entry key="acczuul">
-                    <bean class="com.foreveross.common.shiro.ShiroZuulAccessControlFilter"/>
+                    <bean class="com.foreveross.common.shiro.ShiroMSAccessControlFilter"/>
                 </entry>
                 <entry key="accauth">
                     <bean class="com.foreveross.common.shiro.ShiroAuthAccessControlFilter"/>
@@ -35,13 +35,12 @@
                     <bean class="com.foreveross.common.shiro.ShiroJwtAccessControlFilter"/>
                 </entry>
                 <entry key="acconce">
-                    <bean
-                            class="com.foreveross.common.shiro.ShiroOnceValidAccessControlFilter">
+                    <bean class="com.foreveross.common.shiro.ShiroOnceValidAccessControlFilter">
                         <property name="onceFilterChains">
                             <list>
+                                <bean class="com.foreveross.common.shiro.ShiroMSAccessControlFilter"/>
                                 <bean class="com.foreveross.common.shiro.ShiroJwtAccessControlFilter"/>
                                 <bean class="com.foreveross.common.shiro.ShiroAuthAccessControlFilter"/>
-                                <bean class="com.foreveross.common.shiro.ShiroZuulAccessControlFilter"/>
                                 <bean class="com.foreveross.common.shiro.ShiroAccessControlFilter"/>
                                 <bean class="com.foreveross.common.shiro.ShiroIpAccessControlFilter"/>
                             </list>
@@ -119,8 +118,7 @@
     <bean
             class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
             depends-on="lifecycleBeanPostProcessor"/>
-    <bean
-            class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
         <property name="securityManager" ref="securityManager"/>
     </bean>
 </beans>

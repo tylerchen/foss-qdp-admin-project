@@ -15,14 +15,12 @@ import com.foreveross.common.application.ImageCaptchaApplication;
 import com.foreveross.common.application.SystemApplication;
 import com.foreveross.common.shiro.JWTTokenHelper;
 import com.foreveross.common.shiro.ShiroUser;
+import com.foreveross.common.util.EncryptDecryptUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.subject.Subject;
 import org.iff.infra.util.*;
-import org.iff.infra.util.spring.SpringContextHelper;
-import org.springframework.cloud.client.ServiceInstance;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +31,10 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.OutputStream;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 登录基础功能：登录、登出、验证码。
@@ -258,12 +259,45 @@ public class SystemController extends BaseController {
         try {
             String parameter = request.getParameter("password");
             if (!StringUtils.isBlank(parameter)) {
-                parameter = MD5Helper.secondSalt(MD5Helper.firstSalt(parameter));
+                parameter = EncryptDecryptUtil.secondSalt(parameter);
             }
             return success(parameter);
         } catch (Exception e) {
             return error(e);
         }
+    }
+
+    @ResponseBody
+    @RequestMapping("/encrypeDecrypt")
+    public String encrypeDecrypt(HttpServletRequest request) {
+        String type = request.getParameter("type");
+        String parameter = request.getParameter("target");
+        if ("firstSalt".equals(type)) {
+            return StringUtils.defaultString(EncryptDecryptUtil.firstSalt(parameter), "ERROR");
+        }
+        if ("secondSalt".equals(type)) {
+            return StringUtils.defaultString(EncryptDecryptUtil.secondSalt(parameter), "ERROR");
+        }
+        if ("rsaEncrypt".equals(type)) {
+            return StringUtils.defaultString(EncryptDecryptUtil.rsaEncrypt(parameter), "ERROR");
+        }
+        if ("rsaDecrypt".equals(type)) {
+            return StringUtils.defaultString(EncryptDecryptUtil.rsaDecrypt(parameter), "ERROR");
+        }
+        if ("deflate2Base62Encrypt".equals(type)) {
+            String mark = request.getParameter("mark");
+            if (StringUtils.isBlank(mark)) {
+                mark = HttpHelper.getIpAddr(request);
+            }
+            if (StringUtils.isNotBlank(mark)) {
+                return StringUtils.defaultString(EncryptDecryptUtil.deflate2Base62Encrypt(parameter, mark), "ERROR");
+            }
+            return StringUtils.defaultString(EncryptDecryptUtil.deflate2Base62Encrypt(parameter), "ERROR");
+        }
+        if ("deflate2Base62Decrypt".equals(type)) {
+            return StringUtils.defaultString(EncryptDecryptUtil.deflate2Base62Decrypt(parameter), "ERROR");
+        }
+        return "ERROR";
     }
 
     @RequestMapping("/info")
@@ -328,13 +362,6 @@ public class SystemController extends BaseController {
                 "<title>Application Info Page</title>\n" +
                 "</head>\n" +
                 "<body>\n";
-        DiscoveryClient discovery = SpringContextHelper.getBean(DiscoveryClient.class);
-        for (String service : discovery.getServices()) {
-            List<ServiceInstance> instances = discovery.getInstances(service);
-            for (ServiceInstance si : instances) {
-                html += "<h1>" + service + ":" + si.getUri() + "</h1>";
-            }
-        }
         for (Map.Entry<String, Map<String, String>> pEntry : map.entrySet()) {
             String content = "";
             String pKey = pEntry.getKey();
