@@ -16,6 +16,7 @@
 
 package com.foreveross.common.proxy;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.*;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.CookieSpecs;
@@ -126,7 +127,7 @@ public class ProxyServlet implements Closeable {
     /**
      * 改造
      */
-    private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\']", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
+    private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])?(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\'\\)]", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
     /**
      * 改造
      */
@@ -738,24 +739,31 @@ public class ProxyServlet implements Closeable {
          * $6 - The link
          */
         String content = StreamHelper.getContent(entity.getContent(), false);
+        if (StringUtils.contains(servletRequest.getRequestURI(), "commons.style.css")) {
+            System.out.println(servletResponse.getContentType());
+        }
         StringBuffer page = new StringBuffer();
-
+        Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])?(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\'\\)]", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
         Matcher matcher = linkPattern.matcher(content);
         while (matcher.find()) {
             String link = matcher.group(6).replaceAll("\\$", "\\\\\\$");
+            String g1 = StringUtils.defaultString(matcher.group(1), "");
+            String g2 = StringUtils.defaultString(matcher.group(2), "");
+            String g4 = StringUtils.defaultString(matcher.group(4), "");
+            String g6 = StringUtils.defaultString(matcher.group(6), "");
             if (link.length() == 0) {
                 link = "/";
             }
             String rewritten = null;
-            if (matcher.group(4) != null) {
-                rewritten = matcher.group(6);
+            if (g4.length() > 0) {
+                rewritten = g6;
             } else {
                 if (link.startsWith("/")) {
-                    rewritten = matcher.group(1) + matcher.group(2) + servletRequest.getContextPath() + link + matcher.group(2);
+                    rewritten = g1 + g2 + servletRequest.getContextPath() + link + g2;
                 } else if (!link.startsWith(".")) {
-                    rewritten = matcher.group(1) + matcher.group(2) + "./" + link + matcher.group(2);
+                    rewritten = g1 + g2 + "./" + link + g2;
                 } else {
-                    rewritten = matcher.group(6);
+                    rewritten = g6;
                 }
             }
             if (rewritten != null) {
@@ -764,6 +772,39 @@ public class ProxyServlet implements Closeable {
         }
         matcher.appendTail(page);
         String pageContent = page.toString();
+        if (StringUtils.contains(servletResponse.getContentType(), "html")) {
+            //<meta http-equiv="refresh" content="0;url=resource/pages/index.html">
+            int indexOf = pageContent.indexOf("<meta http-equiv=\"refresh\"");
+            if (indexOf > 0) {
+                String urlRefresh = pageContent.substring(pageContent.indexOf("url=", indexOf), pageContent.indexOf("\">", indexOf));
+                urlRefresh = "url=" + StringUtils.removeEnd(servletRequest.getContextPath(), "/") + "/" + StringUtils.removeStart(urlRefresh.substring(4), "/");
+                pageContent = pageContent.substring(0, pageContent.indexOf("url=", indexOf)) + urlRefresh + pageContent.substring(pageContent.indexOf("\">", indexOf));
+            }
+            String script = "\n<script type=\"text/javascript\">" +
+                    "var ____proxy_context___=\"" + StringUtils.removeEnd(servletRequest.getContextPath(), "/") + "\";" +
+                    "document.createElement = function(create) {\n" +
+                    "    return function() {\n" +
+                    "        var ret = create.apply(this, arguments);\n" +
+                    "        var lowerCase = ret.tagName.toLowerCase();\n" +
+                    "        if (lowerCase === \"script\" || lowerCase === \"link\" || lowerCase === \"a\" || lowerCase === \"img\" || lowerCase === \"iframe\") {\n" +
+                    "            ret.setAttribute = function(setAttribute) {\n" +
+                    "                return function() {\n" +
+                    "                    var attr=(arguments[0]||\"\").toLowerCase();\n" +
+                    "                    var link=arguments[1]||\"\";\n" +
+                    "                    if((attr === \"src\" || attr === \"href\") && link.indexOf(\"data:\")<0 && link.indexOf(____proxy_context___)<0){console.log(link);\n" +
+                    "                        link=____proxy_context___+(link.indexOf(\"/\")==0?\"\":\"/\")+link;\n" +
+                    "                        arguments[1]=link;console.log(link);\n" +
+                    "                    }\n" +
+                    "                    var ret = setAttribute.apply(this, arguments);\n" +
+                    "                };\n" +
+                    "            }(ret.setAttribute);\n" +
+                    "        }\n" +
+                    "        return ret;\n" +
+                    "    };\n" +
+                    "}(document.createElement);</script>";
+
+            pageContent += script;
+        }
         byte[] pageBytes = pageContent.getBytes("UTF-8");
         servletResponse.setIntHeader(HttpHeaders.CONTENT_LENGTH, pageBytes.length);
         servletOutputStream.write(pageBytes);
@@ -814,41 +855,59 @@ public class ProxyServlet implements Closeable {
     }
 
     /**
+     * 改造
      * For a redirect response from the target server, this translates {@code theUrl} to redirect to
      * and translates it to one the original client can use.
      */
     protected String rewriteUrlFromResponse(HttpServletRequest servletRequest, String theUrl) {
         //TODO document example paths
         final String targetUri = getTargetUri(servletRequest);
+//        if (theUrl.startsWith(targetUri)) {
+//            /*-
+//             * The URL points back to the back-end server.
+//             * Instead of returning it verbatim we replace the target path with our
+//             * source path in a way that should instruct the original client to
+//             * request the URL pointed through this Proxy.
+//             * We do this by taking the current request and rewriting the path part
+//             * using this servlet's absolute path and the path from the returned URL
+//             * after the base target URL.
+//             */
+//            StringBuffer curUrl = servletRequest.getRequestURL();//no query
+//            int pos;
+//            // Skip the protocol part
+//            if ((pos = curUrl.indexOf("://")) >= 0) {
+//                // Skip the authority part
+//                // + 3 to skip the separator between protocol and authority
+//                if ((pos = curUrl.indexOf("/", pos + 3)) >= 0) {
+//                    // Trim everything after the authority part.
+//                    curUrl.setLength(pos);
+//                }
+//            }
+//            // Context path starts with a / if it is not blank
+//            curUrl.append(servletRequest.getContextPath());
+//            // Servlet path starts with a / if it is not blank
+//            curUrl.append(servletRequest.getServletPath());
+//            curUrl.append(theUrl, targetUri.length(), theUrl.length());
+//            return curUrl.toString();
+//        }
+//        return theUrl;
         if (theUrl.startsWith(targetUri)) {
-            /*-
-             * The URL points back to the back-end server.
-             * Instead of returning it verbatim we replace the target path with our
-             * source path in a way that should instruct the original client to
-             * request the URL pointed through this Proxy.
-             * We do this by taking the current request and rewriting the path part
-             * using this servlet's absolute path and the path from the returned URL
-             * after the base target URL.
-             */
-            StringBuffer curUrl = servletRequest.getRequestURL();//no query
-            int pos;
-            // Skip the protocol part
-            if ((pos = curUrl.indexOf("://")) >= 0) {
-                // Skip the authority part
-                // + 3 to skip the separator between protocol and authority
-                if ((pos = curUrl.indexOf("/", pos + 3)) >= 0) {
-                    // Trim everything after the authority part.
-                    curUrl.setLength(pos);
-                }
-            }
-            // Context path starts with a / if it is not blank
-            curUrl.append(servletRequest.getContextPath());
-            // Servlet path starts with a / if it is not blank
-            curUrl.append(servletRequest.getServletPath());
-            curUrl.append(theUrl, targetUri.length(), theUrl.length());
-            return curUrl.toString();
+            theUrl = theUrl.substring(targetUri.length());
         }
-        return theUrl;
+        if (theUrl.startsWith("/")) {
+            return servletRequest.getContextPath() + theUrl;
+        } else {
+            String requestURL = servletRequest.getRequestURL().toString();
+            requestURL = requestURL.substring(requestURL.indexOf(servletRequest.getContextPath()));
+            if (theUrl.startsWith("./")) {
+                theUrl = theUrl.substring(2);
+            }
+            if (requestURL.endsWith("/")) {
+                return requestURL + theUrl;
+            } else {
+                return requestURL + "/" + theUrl;
+            }
+        }
     }
 
     /**

@@ -34,7 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 public class ProxyController {
 
     @RequestMapping(path = "/{host}/{port}/**")//path=/host/port/realUri
-    public void proxy(HttpServletRequest request, HttpServletResponse response) {
+    public void proxy(final HttpServletRequest request, HttpServletResponse response) {
         String requestURI = request.getRequestURI();
         System.out.println("URI:" + requestURI);
         String reportPath = StringUtils.substringAfter(requestURI, "/proxy/");
@@ -51,12 +51,8 @@ public class ProxyController {
         final String hostPort = "/proxy/" + pathSplit[0] + "/" + pathSplit[1];
         final HttpServletRequest wrapper = new HttpServletRequestWrapper(request) {
             public String getPathInfo() {
-                String path = super.getPathInfo();
-                if (path.startsWith(hostPort)) {
-                    final int length = hostPort.length();
-                    path = path.substring(length);
-                }
-                return path;
+                String path = request.getRequestURI();
+                return StringUtils.substringAfter(path, hostPort);
             }
 
             public String getContextPath() {
@@ -70,6 +66,7 @@ public class ProxyController {
 
             String targetUrl = "http://" + pathSplit[0] + ":" + pathSplit[1];
             Logger.info("Proxy target url: " + targetUrl + ", origin url: " + requestURI);
+
             ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl),
                     MapHelper.toMap("zuul", getZuulHeader("admin@admin.com"), "x-forwarded-for", HttpHelper.getRemoteIpAddr(request), "proxy-enable", "1"));
             proxyServlet.service(wrapper, response);
