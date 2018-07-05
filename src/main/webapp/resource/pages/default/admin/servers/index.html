@@ -13,11 +13,11 @@
                             <h3>{{serverId}}</h3>
                         </el-col>
                     </el-row>
-                    <el-row type="flex" justify="start" align="top" :gutter="20" v-for="(si, sindex) in serverInfos" v-show="sindex%4==0">
-                        <el-col :span="6" v-for="(serverInfo, index) in serverInfos" v-show="index>=sindex && index<sindex+4">
+                    <el-row type="flex" justify="start" align="top" :gutter="20" v-for="(si, sindex) in serverInfos" v-show="sindex%4==0" :key="si">
+                        <el-col :span="6" v-for="(serverInfo, index) in serverInfos" v-show="index>=sindex && index<sindex+4" :key="serverInfo">
                             <el-container class="info-ctn">
                                 <el-aside width="60px" :class="serverInfo.indexOf('UP')>-1?'info-left bg-green':'info-left bg-red'">
-                                    <a target="_blank" :href="serverInfo.substring(serverInfo.indexOf(',')+1)">{{serverInfo.indexOf('UP')>-1?'UP':'DOWN'}}</a>
+                                    <a target="_blank" :href="serverInfo.substring(serverInfo.indexOf(',')+1)+'/swagger-ui.html'">{{serverInfo.indexOf('UP')>-1?'UP':'DOWN'}}</a>
                                 </el-aside>
                                 <el-main>
                                     <span class="info-box-text">{{serverInfo.substring(serverInfo.indexOf(',')+1)}}</span>

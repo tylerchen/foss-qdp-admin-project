@@ -10,6 +10,7 @@ package com.foreveross.common.web;
 
 import com.foreveross.common.proxy.ProxyServlet;
 import com.foreveross.common.shiro.JWTTokenHelper;
+import com.foreveross.common.util.EncryptDecryptUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.iff.infra.util.HttpHelper;
 import org.iff.infra.util.Logger;
@@ -68,7 +69,7 @@ public class ProxyController {
             Logger.info("Proxy target url: " + targetUrl + ", origin url: " + requestURI);
 
             ProxyServlet proxyServlet = new ProxyServlet(MapHelper.toMap(ProxyServlet.P_TARGET_URI, targetUrl),
-                    MapHelper.toMap("zuul", getZuulHeader("admin@admin.com"), "x-forwarded-for", HttpHelper.getRemoteIpAddr(request), "proxy-enable", "1"));
+                    MapHelper.toMap("zuultoken", EncryptDecryptUtil.deflate2Base62Encrypt("zuul@admin.com"), "x-forwarded-for", HttpHelper.getRemoteIpAddr(request), "proxy-enable", "1"));
             proxyServlet.service(wrapper, response);
         } catch (Exception e) {
             e.printStackTrace();

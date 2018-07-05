@@ -127,7 +127,9 @@ public class ProxyServlet implements Closeable {
     /**
      * 改造
      */
-    private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])?(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\'\\)]", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
+    //<meta http-equiv="refresh" content="0;url=resource/pages/index.html">
+    //private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])?(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\'\\)]", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
+    private static final Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()|url=", Pattern.CASE_INSENSITIVE);
     /**
      * 改造
      */
@@ -713,73 +715,43 @@ public class ProxyServlet implements Closeable {
      * @throws IOException
      */
     private void rewriteUrl(HttpServletResponse servletResponse, HttpServletRequest servletRequest, HttpEntity entity, ServletOutputStream servletOutputStream) throws IOException {
-        /*
-         * Using regex can be quite harsh sometimes so here is how
-         * the regex trying to find links works
-         *
-         * \\b(href=|src=|action=|url\\()([\"\'])
-         * This part is the identification of links, matching
-         * something like href=", href=' and href=
-         *
-         * (([^/]+://)([^/<>]+))?
-         * This is to identify absolute paths. A link doesn't have
-         * to be absolute therefor there is a ?.
-         *
-         * ([^\"\'>]*)
-         * This is the link
-         *
-         * [\"\']
-         * Ending " or '
-         *
-         * $1 - link type, e.g. href=
-         * $2 - ", ' or whitespace
-         * $3 - The entire http://www.server.com if present
-         * $4 - The protocol, e.g http:// or ftp://
-         * $5 - The host name, e.g. www.server.com
-         * $6 - The link
-         */
         String content = StreamHelper.getContent(entity.getContent(), false);
-        if (StringUtils.contains(servletRequest.getRequestURI(), "commons.style.css")) {
-            System.out.println(servletResponse.getContentType());
-        }
-        StringBuffer page = new StringBuffer();
-        Pattern linkPattern = Pattern.compile("\\b(href=|src=|action=|url\\()([\"\'])?(([^/]+://)([^/<>]+))?([^\"\'>]*)[\"\'\\)]", Pattern.CASE_INSENSITIVE | Pattern.CANON_EQ);
+        StringBuffer page = new StringBuffer(content);
         Matcher matcher = linkPattern.matcher(content);
         while (matcher.find()) {
-            String link = matcher.group(6).replaceAll("\\$", "\\\\\\$");
-            String g1 = StringUtils.defaultString(matcher.group(1), "");
-            String g2 = StringUtils.defaultString(matcher.group(2), "");
-            String g4 = StringUtils.defaultString(matcher.group(4), "");
-            String g6 = StringUtils.defaultString(matcher.group(6), "");
-            if (link.length() == 0) {
-                link = "/";
-            }
-            String rewritten = null;
-            if (g4.length() > 0) {
-                rewritten = g6;
-            } else {
-                if (link.startsWith("/")) {
-                    rewritten = g1 + g2 + servletRequest.getContextPath() + link + g2;
-                } else if (!link.startsWith(".")) {
-                    rewritten = g1 + g2 + "./" + link + g2;
-                } else {
-                    rewritten = g6;
+            String g1 = matcher.group();//href=|src=|action=|url(|url=
+            int end = matcher.end(), pos = 0;
+            {
+                //data:image/png;Base64图片，不做转换 || https://外部网站的地址，不做转换
+                String validLink = content.length() > end + 15 ? content.substring(end, end + 15) : "";
+                if (StringUtils.contains(validLink, "data:") || StringUtils.contains(validLink, "://")) {
+                    continue;
                 }
             }
+            char urlStart = ' ';
+            if (content.charAt(end) == '\"') {
+                urlStart = content.charAt((pos = end + 1));
+            } else if (content.charAt(end) == '\'') {
+                urlStart = content.charAt((pos = end + 1));
+            } else if (content.charAt(end - 1) == '(') {
+                urlStart = content.charAt((pos = end));
+            } else if ("url=".equals(g1.toLowerCase())) {
+                urlStart = content.charAt((pos = end));
+            }
+            if (urlStart == ' ') {
+                urlStart = '/';
+            }
+            String rewritten = null;
+            if (urlStart == '/') {
+                rewritten = servletRequest.getContextPath();
+            } else if (urlStart != '.') {
+                rewritten = "./";
+            }
             if (rewritten != null) {
-                matcher.appendReplacement(page, rewritten);
+                page.insert(pos + (page.length() - content.length()), rewritten);
             }
         }
-        matcher.appendTail(page);
-        String pageContent = page.toString();
         if (StringUtils.contains(servletResponse.getContentType(), "html")) {
-            //<meta http-equiv="refresh" content="0;url=resource/pages/index.html">
-            int indexOf = pageContent.indexOf("<meta http-equiv=\"refresh\"");
-            if (indexOf > 0) {
-                String urlRefresh = pageContent.substring(pageContent.indexOf("url=", indexOf), pageContent.indexOf("\">", indexOf));
-                urlRefresh = "url=" + StringUtils.removeEnd(servletRequest.getContextPath(), "/") + "/" + StringUtils.removeStart(urlRefresh.substring(4), "/");
-                pageContent = pageContent.substring(0, pageContent.indexOf("url=", indexOf)) + urlRefresh + pageContent.substring(pageContent.indexOf("\">", indexOf));
-            }
             String script = "\n<script type=\"text/javascript\">" +
                     "var ____proxy_context___=\"" + StringUtils.removeEnd(servletRequest.getContextPath(), "/") + "\";" +
                     "document.createElement = function(create) {\n" +
@@ -791,9 +763,9 @@ public class ProxyServlet implements Closeable {
                     "                return function() {\n" +
                     "                    var attr=(arguments[0]||\"\").toLowerCase();\n" +
                     "                    var link=arguments[1]||\"\";\n" +
-                    "                    if((attr === \"src\" || attr === \"href\") && link.indexOf(\"data:\")<0 && link.indexOf(____proxy_context___)<0){console.log(link);\n" +
+                    "                    if((attr === \"src\" || attr === \"href\") && link.indexOf(\"data:\")<0 && link.indexOf(____proxy_context___)<0){\n" +
                     "                        link=____proxy_context___+(link.indexOf(\"/\")==0?\"\":\"/\")+link;\n" +
-                    "                        arguments[1]=link;console.log(link);\n" +
+                    "                        arguments[1]=link;\n" +
                     "                    }\n" +
                     "                    var ret = setAttribute.apply(this, arguments);\n" +
                     "                };\n" +
@@ -803,9 +775,9 @@ public class ProxyServlet implements Closeable {
                     "    };\n" +
                     "}(document.createElement);</script>";
 
-            pageContent += script;
+            page.append(script);
         }
-        byte[] pageBytes = pageContent.getBytes("UTF-8");
+        byte[] pageBytes = page.toString().getBytes(StringUtils.defaultString(servletResponse.getCharacterEncoding(), "UTF-8"));
         servletResponse.setIntHeader(HttpHeaders.CONTENT_LENGTH, pageBytes.length);
         servletOutputStream.write(pageBytes);
     }
