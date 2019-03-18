@@ -10,10 +10,10 @@
                 <div v-for="(serviceInfos, service) in grid.data" class="row-bg">
                     <el-row type="flex" justify="start" align="top" :gutter="20">
                         <el-col :span="4">
-                            <el-button type="primary" plain>{{service.substring(service.indexOf('[')+1, service.indexOf(']'))}}</el-button>
+                            <el-button type="primary" size="mini" plain>{{service.substring(service.indexOf('[')+1, service.indexOf(']'))}}</el-button>
                         </el-col>
                         <el-col :span="14">
-                            <el-button type="primary" plain>{{service.substring(service.indexOf(']')+1)}}</el-button>
+                            <el-button type="primary" size="mini" plain>{{service.substring(service.indexOf(']')+1)}}</el-button>
                         </el-col>
                         <el-col :span="6">
                             <div class="qdp-input-model">

@@ -16,12 +16,15 @@ import org.iff.infra.util.HttpHelper;
 import org.iff.infra.util.Logger;
 import org.iff.infra.util.MapHelper;
 import org.iff.infra.util.SocketHelper;
+import org.iff.infra.util.log.LogKafkaHelper;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /**
  * proxy
@@ -76,7 +79,19 @@ public class ProxyController {
         }
     }
 
-    private String getZuulHeader(String user) {
-        return JWTTokenHelper.encodeToken(user);
+    public static void main(String[] args) {
+        LogKafkaHelper.init("121.40.49.223:9092","applogs");
+        LogKafkaHelper.start();
+        LogKafkaHelper.log(MapHelper.toMap(new Object[]{"name", "tyler", "date", new Date()}));
+        LogKafkaHelper.log(MapHelper.toMap(new Object[]{"name", "tyler", "date", new Date()}));
+        LogKafkaHelper.log(MapHelper.toMap(new Object[]{"name", "tyler", "date", new Date()}));
+        LogKafkaHelper.close();
+        try {
+            TimeUnit.SECONDS.sleep(10L);
+        } catch (InterruptedException var2) {
+            var2.printStackTrace();
+        }
+
+        System.exit(2);
     }
 }

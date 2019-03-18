@@ -17,7 +17,7 @@
                         <el-col :span="6" v-for="(serverInfo, index) in serverInfos" v-show="index>=sindex && index<sindex+4" :key="serverInfo">
                             <el-container class="info-ctn">
                                 <el-aside width="60px" :class="serverInfo.indexOf('UP')>-1?'info-left bg-green':'info-left bg-red'">
-                                    <a target="_blank" :href="serverInfo.substring(serverInfo.indexOf(',')+1)+'/swagger-ui.html'">{{serverInfo.indexOf('UP')>-1?'UP':'DOWN'}}</a>
+                                    <a target="_blank" :href="genSwaggerUrl(serverInfo)">{{serverInfo.indexOf('UP')>-1?'UP':'DOWN'}}</a>
                                 </el-aside>
                                 <el-main>
                                     <span class="info-box-text">{{serverInfo.substring(serverInfo.indexOf(',')+1)}}</span>
@@ -84,6 +84,20 @@
 							title : 'Http=>Error', desc : response.url + '\n<br/>' + qdpToString(response), duration : 0
 						});
 					});
+				},
+				genSwaggerUrl: function(serverInfo){
+				    if(serverInfo){
+				        var url = serverInfo.substring(serverInfo.indexOf(',')+1);
+				        var ipPort = url, doubleSplashIndex = url.indexOf('//');
+				        if(doubleSplashIndex > 0){
+				            ipPort = url.substring(doubleSplashIndex + 2);
+				        }
+				        var portIndex = ipPort.indexOf(':'), splashIndex = ipPort.indexOf('/');
+				        var ip = portIndex > 0 ? ipPort.substring(0, portIndex) : (splashIndex > 0 ? ipPort.substring(0, isplashIndex) : ipPort);
+				        var port = ipPort < 1 ? "80" : (splashIndex > 0 ? ipPort.substring(portIndex + 1, isplashIndex) : ipPort.substring(portIndex + 1));
+				        return '/proxy/' + ip + '/' + port + '/swagger-ui.html';
+				    }
+				    return '';
 				},
 				//
 				onPost : function(eventType, arg0, arg1, arg2, arg3) {
